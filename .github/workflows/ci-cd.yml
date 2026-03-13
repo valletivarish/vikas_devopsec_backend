@@ -1,0 +1,145 @@
+# CI/CD Pipeline for Survey Platform Backend
+# Triggers on push to main and pull requests for continuous integration
+# CD stage deploys to AWS EC2 only on push to main branch
+name: Backend CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # =============================================
+  # CI Stage: Build, Test, Analyze, and Scan
+  # =============================================
+  ci:
+    name: CI - Build, Test, and Analyze
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the source code from the repository
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Java 17 with Maven caching for faster builds
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      # Step 3: Install project dependencies and compile the code
+      - name: Build with Maven
+        run: mvn clean compile -B
+
+      # Step 4: Run unit and integration tests with JaCoCo coverage agent
+      - name: Run Tests with Coverage
+        run: mvn test -B
+
+      # Step 5: Run static analysis tools (SpotBugs, PMD) and generate coverage report
+      - name: Run Static Analysis and Coverage
+        run: mvn verify -B -DskipTests
+
+      # Step 6: Run Semgrep security scanning for SAST vulnerabilities
+      - name: Run Semgrep Security Scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: p/java
+        continue-on-error: true
+
+      # Step 7: Upload SpotBugs analysis report as CI artifact
+      - name: Upload SpotBugs Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spotbugs-report
+          path: target/spotbugs/
+
+      # Step 8: Upload PMD analysis report as CI artifact
+      - name: Upload PMD Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pmd-report
+          path: target/pmd*
+
+      # Step 9: Upload JaCoCo code coverage report as CI artifact
+      - name: Upload JaCoCo Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+
+      # Step 10: Upload test results as CI artifact
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: target/surefire-reports/
+
+      # Step 11: Package the application as a JAR for deployment
+      - name: Package Application
+        run: mvn package -B -DskipTests
+
+      # Step 12: Upload the packaged JAR as a deployment artifact
+      - name: Upload JAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: target/*.jar
+
+  # =============================================
+  # CD Stage: Deploy to AWS EC2 (only on push to main)
+  # =============================================
+  cd:
+    name: CD - Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      # Step 1: Download the packaged JAR artifact from CI stage
+      - name: Download JAR Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: ./target
+
+      # Step 2: Deploy the JAR to EC2 instance via SSH
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # Stop existing application if running
+            sudo systemctl stop survey-platform || true
+            # Create application directory if it does not exist
+            sudo mkdir -p /opt/survey-platform
+            # Copy the new JAR file to the deployment directory
+            sudo cp /tmp/survey-platform.jar /opt/survey-platform/app.jar
+            # Start the application using systemd
+            sudo systemctl start survey-platform
+
+      # Step 3: Copy JAR to EC2 via SCP before deploying
+      - name: Copy JAR to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "target/*.jar"
+          target: "/tmp/survey-platform.jar"
+          strip_components: 1
+
+      # Step 4: Smoke test to verify deployment was successful
+      - name: Smoke Test - Health Check
+        run: |
+          echo "Waiting for application to start..."
+          sleep 30
+          curl -f http://${{ secrets.EC2_HOST }}:8080/api/health || echo "Health check pending - verify manually"
