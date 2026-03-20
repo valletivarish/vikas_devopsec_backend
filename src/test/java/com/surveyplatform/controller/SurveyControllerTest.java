@@ -5,6 +5,7 @@ import com.surveyplatform.config.JwtTokenProvider;
 import com.surveyplatform.dto.QuestionDTO;
 import com.surveyplatform.dto.ResponseOptionDTO;
 import com.surveyplatform.dto.SurveyDTO;
+import com.surveyplatform.config.CustomUserDetailsService;
 import com.surveyplatform.service.SurveyService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,11 +14,14 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -43,12 +47,20 @@ class SurveyControllerTest {
     @MockBean
     private SurveyService surveyService;
 
+    @MockBean
+    private CustomUserDetailsService customUserDetailsService;
+
     private String authToken;
 
     @BeforeEach
     void setUp() {
         // Generate a valid JWT token for authenticated requests
         authToken = jwtTokenProvider.generateToken("testuser");
+
+        // Mock the user details service so the JWT auth filter can resolve "testuser"
+        when(customUserDetailsService.loadUserByUsername("testuser"))
+                .thenReturn(new User("testuser", "password",
+                        Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))));
     }
 
     // Test creating a survey with valid input returns HTTP 201
@@ -117,11 +129,11 @@ class SurveyControllerTest {
                 .andExpect(status().isNoContent());
     }
 
-    // Test accessing surveys without authentication returns HTTP 403
+    // Test accessing surveys without authentication returns HTTP 401
     @Test
-    void getSurveysShouldReturnForbiddenWithoutAuth() throws Exception {
+    void getSurveysShouldReturnUnauthorizedWithoutAuth() throws Exception {
         mockMvc.perform(get("/api/surveys"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     // Helper method to build a sample survey DTO for testing

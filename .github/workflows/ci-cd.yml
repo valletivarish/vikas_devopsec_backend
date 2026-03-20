@@ -21,6 +21,8 @@ jobs:
       # Step 1: Checkout the source code from the repository
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Step 2: Set up Java 17 with Maven caching for faster builds
       - name: Set up JDK 17
@@ -30,6 +32,10 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      # =============================================
+      # BUILD AND TEST PHASE
+      # =============================================
+
       # Step 3: Install project dependencies and compile the code
       - name: Build with Maven
         run: mvn clean compile -B
@@ -38,32 +44,45 @@ jobs:
       - name: Run Tests with Coverage
         run: mvn test -B
 
-      # Step 5: Run SpotBugs with FindSecBugs for static analysis and security
-      - name: Run SpotBugs with FindSecBugs
-        run: mvn com.github.spotbugs:spotbugs-maven-plugin:check -B
-        continue-on-error: true
-
-      # Step 6: Run PMD for code quality analysis
-      - name: Run PMD Code Quality Check
-        run: mvn pmd:check -B
-        continue-on-error: true
-
-      # Step 7: Generate JaCoCo code coverage report
+      # Step 5: Generate JaCoCo code coverage report
       - name: Generate JaCoCo Coverage Report
         run: mvn jacoco:report -B
 
-      # Step 8: Run OWASP Dependency-Check for known CVEs
-      - name: OWASP Dependency-Check
-        uses: dependency-check/Dependency-Check_Action@main
-        with:
-          project: 'survey-platform-backend'
-          path: '.'
-          format: 'HTML'
-          out: 'dependency-check-report'
+      # =============================================
+      # STATIC CODE ANALYSIS PHASE
+      # =============================================
+
+      # Step 6: Run SpotBugs with FindSecBugs plugin for static analysis and security bug detection
+      # SpotBugs identifies common bug patterns; FindSecBugs extends it with security-focused rules
+      # covering OWASP Top 10 vulnerabilities like SQL injection, XSS, and insecure cryptography
+      - name: SpotBugs with FindSecBugs (SAST)
+        run: mvn com.github.spotbugs:spotbugs-maven-plugin:check -B
         continue-on-error: true
 
-      # Step 9: Run Trivy filesystem vulnerability scan
-      - name: Trivy Filesystem Scan
+      # Step 7: Run PMD for code quality analysis detecting code smells, dead code, and complexity issues
+      # PMD performs static analysis to find common programming flaws and suboptimal code patterns
+      - name: PMD Code Quality Analysis
+        run: mvn pmd:check -B
+        continue-on-error: true
+
+      # =============================================
+      # SECURITY VULNERABILITY SCANNING PHASE
+      # =============================================
+
+      # Step 8: Run Grype vulnerability scanner for deep dependency analysis (SCA)
+      # Grype is Anchore's open-source vulnerability scanner that matches packages against known CVEs
+      # from multiple vulnerability databases including NVD, GitHub Advisory, and OS-specific databases
+      - name: Grype Dependency Vulnerability Scan (SCA)
+        uses: anchore/scan-action@v6
+        with:
+          path: '.'
+          fail-build: false
+          severity-cutoff: high
+          output-format: table
+
+      # Step 9: Run Trivy filesystem vulnerability scan on source code and dependencies
+      # Trivy detects vulnerabilities in OS packages, language-specific packages, and misconfigurations
+      - name: Trivy Filesystem Vulnerability Scan
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
@@ -72,8 +91,9 @@ jobs:
           severity: 'CRITICAL,HIGH,MEDIUM'
         continue-on-error: true
 
-      # Step 10: Generate Trivy SBOM in CycloneDX format
-      - name: Trivy SBOM Generation
+      # Step 10: Generate Trivy SBOM in CycloneDX format for software supply chain transparency
+      # SBOM provides a complete inventory of all components and their versions
+      - name: Trivy SBOM Generation (CycloneDX)
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
@@ -82,14 +102,23 @@ jobs:
           output: 'sbom-backend.json'
         continue-on-error: true
 
-      # Step 11: Run Gitleaks for secret scanning
+      # =============================================
+      # SECRET SCANNING PHASE
+      # =============================================
+
+      # Step 11: Run Gitleaks to scan the git history for accidentally committed secrets
+      # Detects API keys, tokens, passwords, and other sensitive data in the repository history
       - name: Gitleaks Secret Scanning
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
 
-      # Step 12: Upload SpotBugs analysis report as CI artifact
+      # =============================================
+      # ARTIFACT UPLOAD PHASE
+      # =============================================
+
+      # Step 12: Upload SpotBugs analysis report as CI artifact for review
       - name: Upload SpotBugs Report
         uses: actions/upload-artifact@v4
         if: always()
@@ -97,7 +126,7 @@ jobs:
           name: spotbugs-report
           path: target/spotbugs/
 
-      # Step 13: Upload PMD analysis report as CI artifact
+      # Step 13: Upload PMD analysis report as CI artifact for review
       - name: Upload PMD Report
         uses: actions/upload-artifact@v4
         if: always()
@@ -121,21 +150,17 @@ jobs:
           name: test-results
           path: target/surefire-reports/
 
-      # Step 16: Upload OWASP Dependency-Check report
-      - name: Upload Dependency-Check Report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: dependency-check-report
-          path: dependency-check-report/
-
-      # Step 17: Upload Trivy SBOM
+      # Step 16: Upload Trivy SBOM for software supply chain auditing
       - name: Upload Trivy SBOM
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: trivy-sbom-backend
           path: sbom-backend.json
+
+      # =============================================
+      # PACKAGING PHASE
+      # =============================================
 
       # Step 18: Package the application as a JAR for deployment
       - name: Package Application

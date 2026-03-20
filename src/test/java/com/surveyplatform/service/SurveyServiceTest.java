@@ -1,8 +1,10 @@
 package com.surveyplatform.service;
 
 import com.surveyplatform.dto.QuestionDTO;
+import com.surveyplatform.dto.ResponseOptionDTO;
 import com.surveyplatform.dto.SurveyDTO;
 import com.surveyplatform.exception.BadRequestException;
+import com.surveyplatform.exception.ForbiddenException;
 import com.surveyplatform.exception.ResourceNotFoundException;
 import com.surveyplatform.model.*;
 import com.surveyplatform.repository.*;
@@ -103,15 +105,127 @@ class SurveyServiceTest {
                 () -> surveyService.getSurveyById(999L));
     }
 
-    // Test deleting a survey by a different user throws BadRequestException
+    // Test deleting a survey by a different user throws ForbiddenException
     @Test
     void deleteSurveyShouldThrowForNonOwner() {
         User creator = User.builder().id(1L).username("creator").build();
         Survey survey = Survey.builder().id(1L).creator(creator).build();
         when(surveyRepository.findById(1L)).thenReturn(Optional.of(survey));
 
-        assertThrows(BadRequestException.class,
+        assertThrows(ForbiddenException.class,
                 () -> surveyService.deleteSurvey(1L, "otheruser"));
+    }
+
+    // Test updating a survey succeeds for the owner
+    @Test
+    void updateSurveyShouldSucceedForOwner() {
+        User creator = User.builder().id(1L).username("testuser").build();
+        Survey survey = Survey.builder().id(1L).title("Old Title").creator(creator)
+                .status(SurveyStatus.DRAFT).visibility(SurveyVisibility.PUBLIC)
+                .questions(new ArrayList<>()).build();
+
+        when(surveyRepository.findById(1L)).thenReturn(Optional.of(survey));
+        when(surveyRepository.save(any(Survey.class))).thenReturn(survey);
+        when(surveyResponseRepository.countBySurveyId(1L)).thenReturn(0L);
+
+        SurveyDTO updateDto = SurveyDTO.builder()
+                .title("New Title").description("Updated")
+                .questions(List.of(QuestionDTO.builder().text("Q?").type("OPEN_TEXT").questionOrder(1).build()))
+                .build();
+
+        SurveyDTO result = surveyService.updateSurvey(1L, updateDto, "testuser");
+        assertNotNull(result);
+    }
+
+    // Test updating a survey by non-owner throws ForbiddenException
+    @Test
+    void updateSurveyShouldThrowForNonOwner() {
+        User creator = User.builder().id(1L).username("creator").build();
+        Survey survey = Survey.builder().id(1L).creator(creator).build();
+        when(surveyRepository.findById(1L)).thenReturn(Optional.of(survey));
+
+        SurveyDTO dto = SurveyDTO.builder().title("X").build();
+        assertThrows(ForbiddenException.class,
+                () -> surveyService.updateSurvey(1L, dto, "otheruser"));
+    }
+
+    // Test getting survey by share link
+    @Test
+    void getSurveyByShareLinkShouldReturnSurvey() {
+        User creator = User.builder().id(1L).username("testuser").build();
+        Survey survey = Survey.builder().id(1L).title("Shared Survey")
+                .shareLink("abc123").status(SurveyStatus.ACTIVE)
+                .visibility(SurveyVisibility.PUBLIC).creator(creator)
+                .questions(new ArrayList<>()).build();
+
+        when(surveyRepository.findByShareLink("abc123")).thenReturn(Optional.of(survey));
+        when(surveyResponseRepository.countBySurveyId(1L)).thenReturn(0L);
+
+        SurveyDTO result = surveyService.getSurveyByShareLink("abc123");
+        assertEquals("Shared Survey", result.getTitle());
+    }
+
+    // Test getting survey by share link that does not exist throws exception
+    @Test
+    void getSurveyByShareLinkShouldThrowWhenNotFound() {
+        when(surveyRepository.findByShareLink("invalid")).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class,
+                () -> surveyService.getSurveyByShareLink("invalid"));
+    }
+
+    // Test getting all surveys returns list
+    @Test
+    void getAllSurveysShouldReturnList() {
+        User creator = User.builder().id(1L).username("testuser").build();
+        Survey survey = Survey.builder().id(1L).title("Survey")
+                .status(SurveyStatus.DRAFT).visibility(SurveyVisibility.PUBLIC)
+                .creator(creator).questions(new ArrayList<>()).build();
+
+        when(surveyRepository.findAll()).thenReturn(List.of(survey));
+        when(surveyResponseRepository.countBySurveyId(1L)).thenReturn(0L);
+
+        List<SurveyDTO> result = surveyService.getAllSurveys();
+        assertEquals(1, result.size());
+    }
+
+    // Test deleting a survey succeeds for the owner
+    @Test
+    void deleteSurveyShouldSucceedForOwner() {
+        User creator = User.builder().id(1L).username("testuser").build();
+        Survey survey = Survey.builder().id(1L).creator(creator).build();
+        when(surveyRepository.findById(1L)).thenReturn(Optional.of(survey));
+
+        surveyService.deleteSurvey(1L, "testuser");
+        verify(surveyRepository).delete(survey);
+    }
+
+    // Test creating survey with response options
+    @Test
+    void createSurveyShouldHandleResponseOptions() {
+        User creator = User.builder().id(1L).username("testuser").build();
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(creator));
+
+        Survey savedSurvey = Survey.builder()
+                .id(1L).title("MC Survey").status(SurveyStatus.DRAFT)
+                .visibility(SurveyVisibility.PUBLIC).creator(creator)
+                .shareLink("xyz789").questions(new ArrayList<>())
+                .createdAt(LocalDateTime.now()).build();
+
+        when(surveyRepository.save(any(Survey.class))).thenReturn(savedSurvey);
+        when(surveyResponseRepository.countBySurveyId(1L)).thenReturn(0L);
+
+        ResponseOptionDTO opt1 = ResponseOptionDTO.builder().text("Yes").optionOrder(1).build();
+        ResponseOptionDTO opt2 = ResponseOptionDTO.builder().text("No").optionOrder(2).build();
+        QuestionDTO question = QuestionDTO.builder()
+                .text("Do you agree?").type("MULTIPLE_CHOICE")
+                .questionOrder(1).required(true)
+                .responseOptions(List.of(opt1, opt2)).build();
+
+        SurveyDTO request = SurveyDTO.builder()
+                .title("MC Survey").questions(List.of(question)).build();
+
+        SurveyDTO result = surveyService.createSurvey(request, "testuser");
+        assertNotNull(result);
     }
 
     // Test retrieving surveys for a user returns correct list
