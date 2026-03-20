@@ -210,13 +210,11 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             # Stop existing application if running
-            sudo systemctl stop survey-platform || true
-            # Create application directory if it does not exist
-            sudo mkdir -p /opt/survey-platform
+            sudo systemctl stop surveyplatform || true
             # Copy the new JAR file to the deployment directory
-            sudo cp /tmp/*.jar /opt/survey-platform/app.jar
+            cp /tmp/*.jar /home/ec2-user/app.jar
             # Start the application using systemd
-            sudo systemctl start survey-platform
+            sudo systemctl start surveyplatform
 
       # Step 4: Smoke test to verify deployment was successful
       - name: Smoke Test - Health Check
