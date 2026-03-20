@@ -2,6 +2,7 @@ package com.surveyplatform.service;
 
 import com.surveyplatform.dto.*;
 import com.surveyplatform.exception.BadRequestException;
+import com.surveyplatform.exception.ForbiddenException;
 import com.surveyplatform.exception.ResourceNotFoundException;
 import com.surveyplatform.model.*;
 import com.surveyplatform.repository.*;
@@ -110,7 +111,7 @@ public class SurveyService {
 
         // Verify the requesting user is the survey creator
         if (!survey.getCreator().getUsername().equals(username)) {
-            throw new BadRequestException("You can only update your own surveys");
+            throw new ForbiddenException("You can only update your own surveys");
         }
 
         // Validate date range
@@ -151,7 +152,7 @@ public class SurveyService {
                 .orElseThrow(() -> new ResourceNotFoundException("Survey", id));
 
         if (!survey.getCreator().getUsername().equals(username)) {
-            throw new BadRequestException("You can only delete your own surveys");
+            throw new ForbiddenException("You can only delete your own surveys");
         }
 
         surveyRepository.delete(survey);

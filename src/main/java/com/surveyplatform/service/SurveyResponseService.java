@@ -68,6 +68,21 @@ public class SurveyResponseService {
                 Question question = questionRepository.findById(answerDto.getQuestionId())
                         .orElseThrow(() -> new ResourceNotFoundException("Question", answerDto.getQuestionId()));
 
+                // Validate LIKERT answer values are numeric and within range
+                if (question.getType() == QuestionType.LIKERT && answerDto.getAnswerValue() != null) {
+                    try {
+                        int value = Integer.parseInt(answerDto.getAnswerValue());
+                        if (question.getLikertMin() != null && value < question.getLikertMin()) {
+                            throw new BadRequestException("Answer value " + value + " is below the minimum " + question.getLikertMin() + " for question " + question.getId());
+                        }
+                        if (question.getLikertMax() != null && value > question.getLikertMax()) {
+                            throw new BadRequestException("Answer value " + value + " exceeds the maximum " + question.getLikertMax() + " for question " + question.getId());
+                        }
+                    } catch (NumberFormatException e) {
+                        throw new BadRequestException("LIKERT answer must be a numeric value for question " + question.getId());
+                    }
+                }
+
                 Answer answer = Answer.builder()
                         .surveyResponse(response)
                         .question(question)

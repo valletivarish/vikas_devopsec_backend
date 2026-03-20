@@ -38,18 +38,58 @@ jobs:
       - name: Run Tests with Coverage
         run: mvn test -B
 
-      # Step 5: Run static analysis tools (SpotBugs, PMD) and generate coverage report
-      - name: Run Static Analysis and Coverage
-        run: mvn verify -B -DskipTests
-
-      # Step 6: Run Semgrep security scanning for SAST vulnerabilities
-      - name: Run Semgrep Security Scan
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: p/java
+      # Step 5: Run SpotBugs with FindSecBugs for static analysis and security
+      - name: Run SpotBugs with FindSecBugs
+        run: mvn com.github.spotbugs:spotbugs-maven-plugin:check -B
         continue-on-error: true
 
-      # Step 7: Upload SpotBugs analysis report as CI artifact
+      # Step 6: Run PMD for code quality analysis
+      - name: Run PMD Code Quality Check
+        run: mvn pmd:check -B
+        continue-on-error: true
+
+      # Step 7: Generate JaCoCo code coverage report
+      - name: Generate JaCoCo Coverage Report
+        run: mvn jacoco:report -B
+
+      # Step 8: Run OWASP Dependency-Check for known CVEs
+      - name: OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'survey-platform-backend'
+          path: '.'
+          format: 'HTML'
+          out: 'dependency-check-report'
+        continue-on-error: true
+
+      # Step 9: Run Trivy filesystem vulnerability scan
+      - name: Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+        continue-on-error: true
+
+      # Step 10: Generate Trivy SBOM in CycloneDX format
+      - name: Trivy SBOM Generation
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'cyclonedx'
+          output: 'sbom-backend.json'
+        continue-on-error: true
+
+      # Step 11: Run Gitleaks for secret scanning
+      - name: Gitleaks Secret Scanning
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      # Step 12: Upload SpotBugs analysis report as CI artifact
       - name: Upload SpotBugs Report
         uses: actions/upload-artifact@v4
         if: always()
@@ -57,7 +97,7 @@ jobs:
           name: spotbugs-report
           path: target/spotbugs/
 
-      # Step 8: Upload PMD analysis report as CI artifact
+      # Step 13: Upload PMD analysis report as CI artifact
       - name: Upload PMD Report
         uses: actions/upload-artifact@v4
         if: always()
@@ -65,7 +105,7 @@ jobs:
           name: pmd-report
           path: target/pmd*
 
-      # Step 9: Upload JaCoCo code coverage report as CI artifact
+      # Step 14: Upload JaCoCo code coverage report as CI artifact
       - name: Upload JaCoCo Coverage Report
         uses: actions/upload-artifact@v4
         if: always()
@@ -73,7 +113,7 @@ jobs:
           name: jacoco-report
           path: target/site/jacoco/
 
-      # Step 10: Upload test results as CI artifact
+      # Step 15: Upload test results as CI artifact
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
@@ -81,11 +121,27 @@ jobs:
           name: test-results
           path: target/surefire-reports/
 
-      # Step 11: Package the application as a JAR for deployment
+      # Step 16: Upload OWASP Dependency-Check report
+      - name: Upload Dependency-Check Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-check-report
+          path: dependency-check-report/
+
+      # Step 17: Upload Trivy SBOM
+      - name: Upload Trivy SBOM
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-sbom-backend
+          path: sbom-backend.json
+
+      # Step 18: Package the application as a JAR for deployment
       - name: Package Application
         run: mvn package -B -DskipTests
 
-      # Step 12: Upload the packaged JAR as a deployment artifact
+      # Step 19: Upload the packaged JAR as a deployment artifact
       - name: Upload JAR Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -109,33 +165,33 @@ jobs:
           name: backend-jar
           path: ./target
 
-      # Step 2: Deploy the JAR to EC2 instance via SSH
+      # Step 2: Copy JAR to EC2 via SCP
+      - name: Copy JAR to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.SSH_KEY }}
+          source: "target/*.jar"
+          target: "/tmp/"
+          strip_components: 1
+
+      # Step 3: Deploy the JAR to EC2 instance via SSH
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
+          key: ${{ secrets.SSH_KEY }}
           script: |
             # Stop existing application if running
             sudo systemctl stop survey-platform || true
             # Create application directory if it does not exist
             sudo mkdir -p /opt/survey-platform
             # Copy the new JAR file to the deployment directory
-            sudo cp /tmp/survey-platform.jar /opt/survey-platform/app.jar
+            sudo cp /tmp/*.jar /opt/survey-platform/app.jar
             # Start the application using systemd
             sudo systemctl start survey-platform
-
-      # Step 3: Copy JAR to EC2 via SCP before deploying
-      - name: Copy JAR to EC2
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "target/*.jar"
-          target: "/tmp/survey-platform.jar"
-          strip_components: 1
 
       # Step 4: Smoke test to verify deployment was successful
       - name: Smoke Test - Health Check

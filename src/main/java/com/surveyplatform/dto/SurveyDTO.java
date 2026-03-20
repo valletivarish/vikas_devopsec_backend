@@ -39,6 +39,7 @@ public class SurveyDTO {
 
     // Nested list of questions with cascading validation
     @Valid
+    @NotNull(message = "Questions are required")
     @Size(min = 1, message = "Survey must have at least 1 question")
     private List<QuestionDTO> questions;
 

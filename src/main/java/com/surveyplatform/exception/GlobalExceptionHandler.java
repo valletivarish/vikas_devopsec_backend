@@ -2,15 +2,20 @@ package com.surveyplatform.exception;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
+import jakarta.validation.ConstraintViolationException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 // Global exception handler that catches all exceptions and returns structured JSON error responses
 // Ensures consistent error response format across all API endpoints
@@ -52,6 +57,48 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleBadCredentials(BadCredentialsException ex) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, "Invalid username or password");
+    }
+
+    // Handle forbidden access exceptions (HTTP 403)
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, Object>> handleForbidden(ForbiddenException ex) {
+        return buildErrorResponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
+
+    // Handle invalid enum values and similar illegal argument errors (HTTP 400)
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Invalid value: " + ex.getMessage());
+    }
+
+    // Handle non-numeric or mismatched path variable types (HTTP 400)
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String message = String.format("Invalid value '%s' for parameter '%s'. Expected type: %s",
+                ex.getValue(), ex.getName(), ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message);
+    }
+
+    // Handle null or malformed JSON request bodies (HTTP 400)
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<Map<String, Object>> handleMessageNotReadable(HttpMessageNotReadableException ex) {
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, "Malformed or missing request body");
+    }
+
+    // Handle constraint violations from @Validated controller parameters (HTTP 400)
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConstraintViolation(ConstraintViolationException ex) {
+        String message = ex.getConstraintViolations().stream()
+                .map(v -> v.getMessage())
+                .collect(Collectors.joining(", "));
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message);
+    }
+
+    // Handle missing required request parameters (HTTP 400)
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<Map<String, Object>> handleMissingParam(MissingServletRequestParameterException ex) {
+        String message = String.format("Required parameter '%s' of type '%s' is missing", ex.getParameterName(), ex.getParameterType());
+        return buildErrorResponse(HttpStatus.BAD_REQUEST, message);
     }
 
     // Handle all other uncaught exceptions (HTTP 500)

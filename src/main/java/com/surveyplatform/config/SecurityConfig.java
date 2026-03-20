@@ -47,10 +47,15 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Allow public survey viewing via share links
                 .requestMatchers(HttpMethod.GET, "/api/surveys/share/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/surveys/*/respond").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/responses/surveys/*/respond").permitAll()
                 // All other endpoints require authentication
                 .anyRequest().authenticated()
             )
+            .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                response.setStatus(401);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"status\":401,\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}");
+            }))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
