@@ -33,7 +33,7 @@ public class ForecastService {
     // Uses linear regression on daily response counts to predict future trends
     @Transactional(readOnly = true)
     public ForecastDTO generateForecast(Long surveyId) {
-        Survey survey = surveyRepository.findById(surveyId)
+        surveyRepository.findById(surveyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Survey", surveyId));
 
         // Retrieve daily response counts for the survey

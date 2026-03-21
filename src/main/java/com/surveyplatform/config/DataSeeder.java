@@ -70,7 +70,7 @@ public class DataSeeder implements CommandLineRunner {
                 .fullName("Data Analyst")
                 .role(Role.USER)
                 .build();
-        analystUser = userRepository.save(analystUser);
+        userRepository.save(analystUser);
 
         Survey survey1 = Survey.builder()
                 .title("Customer Satisfaction Survey")

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <!-- Exclude Lombok-generated getters/setters/builders from EI_EXPOSE_REP warnings.
+         Lombok @Getter/@Setter/@Builder generate code that SpotBugs flags as exposing
+         internal representation. These are false positives in Spring Boot applications
+         where DTOs and entities use Lombok for boilerplate reduction. -->
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP,EI_EXPOSE_REP2"/>
+        <Or>
+            <Package name="com.surveyplatform.model"/>
+            <Package name="com.surveyplatform.dto"/>
+        </Or>
+    </Match>
+</FindBugsFilter>

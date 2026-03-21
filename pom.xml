@@ -140,6 +140,7 @@
                     <xmlOutput>true</xmlOutput>
                     <htmlOutput>true</htmlOutput>
                     <outputDirectory>${project.build.directory}/spotbugs</outputDirectory>
+                    <excludeFilterFile>spotbugs-exclude.xml</excludeFilterFile>
                 </configuration>
                 <executions>
                     <execution>
