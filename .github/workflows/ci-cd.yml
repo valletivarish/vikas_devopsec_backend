@@ -213,6 +213,24 @@ jobs:
             sudo systemctl stop surveyplatform || true
             # Copy the new JAR file to the deployment directory
             cp /tmp/*.jar /home/ec2-user/app.jar
+            # Ensure systemd service uses prod profile for database credentials
+            sudo tee /etc/systemd/system/surveyplatform.service > /dev/null <<'SVCEOF'
+            [Unit]
+            Description=Survey Platform Backend
+            After=network.target postgresql.service
+
+            [Service]
+            User=ec2-user
+            WorkingDirectory=/home/ec2-user
+            ExecStart=/usr/bin/java -jar /home/ec2-user/app.jar --spring.profiles.active=prod
+            SuccessExitStatus=143
+            Restart=always
+            RestartSec=10
+
+            [Install]
+            WantedBy=multi-user.target
+            SVCEOF
+            sudo systemctl daemon-reload
             # Start the application using systemd
             sudo systemctl start surveyplatform
 

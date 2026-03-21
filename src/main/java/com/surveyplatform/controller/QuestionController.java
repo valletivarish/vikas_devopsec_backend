@@ -8,7 +8,6 @@ import com.surveyplatform.model.QuestionType;
 import com.surveyplatform.model.ResponseOption;
 import com.surveyplatform.model.Survey;
 import com.surveyplatform.repository.QuestionRepository;
-import com.surveyplatform.repository.ResponseOptionRepository;
 import com.surveyplatform.repository.SurveyRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -30,15 +29,12 @@ public class QuestionController {
 
     private final QuestionRepository questionRepository;
     private final SurveyRepository surveyRepository;
-    private final ResponseOptionRepository responseOptionRepository;
 
     // Constructor injection for repository dependencies
     public QuestionController(QuestionRepository questionRepository,
-                              SurveyRepository surveyRepository,
-                              ResponseOptionRepository responseOptionRepository) {
+                              SurveyRepository surveyRepository) {
         this.questionRepository = questionRepository;
         this.surveyRepository = surveyRepository;
-        this.responseOptionRepository = responseOptionRepository;
     }
 
     // Get all questions for a specific survey
