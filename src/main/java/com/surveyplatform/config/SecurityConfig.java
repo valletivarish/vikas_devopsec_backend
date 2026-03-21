@@ -43,7 +43,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public endpoints accessible without authentication
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/health").permitAll()
+                .requestMatchers("/api/health", "/api/info").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Allow public survey viewing via share links
                 .requestMatchers(HttpMethod.GET, "/api/surveys/share/**").permitAll()
