@@ -1,9 +1,7 @@
 package com.surveyplatform.service;
 
 import com.surveyplatform.config.JwtTokenProvider;
-import com.surveyplatform.dto.AuthRequest;
-import com.surveyplatform.dto.AuthResponse;
-import com.surveyplatform.dto.RegisterRequest;
+import com.surveyplatform.dto.*;
 import com.surveyplatform.exception.BadRequestException;
 import com.surveyplatform.model.User;
 import com.surveyplatform.repository.UserRepository;
@@ -66,6 +64,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole().name())
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 
@@ -89,6 +88,63 @@ public class AuthService {
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole().name())
+                .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    // Get the current user's profile
+    public AuthResponse getProfile(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new BadRequestException("User not found"));
+
+        return AuthResponse.builder()
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole().name())
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    // Update the current user's profile (fullName and email)
+    @Transactional
+    public AuthResponse updateProfile(String username, ProfileUpdateRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new BadRequestException("User not found"));
+
+        if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new BadRequestException("Email already in use");
+            }
+            user.setEmail(request.getEmail());
+        }
+
+        if (request.getFullName() != null) {
+            user.setFullName(request.getFullName());
+        }
+
+        userRepository.save(user);
+
+        return AuthResponse.builder()
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .role(user.getRole().name())
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    // Change the current user's password
+    @Transactional
+    public void changePassword(String username, PasswordChangeRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new BadRequestException("User not found"));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BadRequestException("Current password is incorrect");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 }
