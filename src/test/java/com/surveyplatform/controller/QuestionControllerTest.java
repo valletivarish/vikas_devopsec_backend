@@ -5,9 +5,7 @@ import com.surveyplatform.config.CustomUserDetailsService;
 import com.surveyplatform.config.JwtTokenProvider;
 import com.surveyplatform.dto.QuestionDTO;
 import com.surveyplatform.model.*;
-import com.surveyplatform.repository.QuestionRepository;
-import com.surveyplatform.repository.ResponseOptionRepository;
-import com.surveyplatform.repository.SurveyRepository;
+import com.surveyplatform.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +54,18 @@ class QuestionControllerTest {
 
     @MockBean
     private CustomUserDetailsService customUserDetailsService;
+
+    @MockBean
+    private SurveyResponseRepository surveyResponseRepository;
+
+    @MockBean
+    private AnswerRepository answerRepository;
+
+    @MockBean
+    private ResultReportRepository resultReportRepository;
+
+    @MockBean
+    private UserRepository userRepository;
 
     private String authToken;
 
