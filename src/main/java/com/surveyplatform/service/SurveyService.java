@@ -144,6 +144,31 @@ public class SurveyService {
         return mapToDTO(saved);
     }
 
+    // Update survey status (DRAFT, ACTIVE, CLOSED)
+    @Transactional
+    public SurveyDTO updateStatus(Long id, String status, String username) {
+        Survey survey = surveyRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Survey", id));
+        if (!survey.getCreator().getUsername().equals(username)) {
+            throw new ForbiddenException("You can only update your own surveys");
+        }
+        survey.setStatus(SurveyStatus.valueOf(status));
+        return mapToDTO(surveyRepository.save(survey));
+    }
+
+    // Toggle survey visibility between PUBLIC and PRIVATE
+    @Transactional
+    public SurveyDTO toggleVisibility(Long id, String username) {
+        Survey survey = surveyRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Survey", id));
+        if (!survey.getCreator().getUsername().equals(username)) {
+            throw new ForbiddenException("You can only update your own surveys");
+        }
+        survey.setVisibility(survey.getVisibility() == SurveyVisibility.PUBLIC
+                ? SurveyVisibility.PRIVATE : SurveyVisibility.PUBLIC);
+        return mapToDTO(surveyRepository.save(survey));
+    }
+
     // Delete a survey and all associated data (cascade)
     @Transactional
     public void deleteSurvey(Long id, String username) {

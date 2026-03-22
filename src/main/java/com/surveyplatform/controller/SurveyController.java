@@ -74,6 +74,25 @@ public class SurveyController {
         return ResponseEntity.ok(updated);
     }
 
+    // Update survey status (DRAFT, ACTIVE, CLOSED)
+    @PatchMapping("/{id}/status")
+    @Operation(summary = "Update survey status")
+    public ResponseEntity<SurveyDTO> updateStatus(@PathVariable Long id,
+                                                   @RequestParam String status,
+                                                   Authentication authentication) {
+        SurveyDTO updated = surveyService.updateStatus(id, status, authentication.getName());
+        return ResponseEntity.ok(updated);
+    }
+
+    // Toggle survey visibility (PUBLIC ↔ PRIVATE)
+    @PatchMapping("/{id}/visibility")
+    @Operation(summary = "Toggle survey visibility")
+    public ResponseEntity<SurveyDTO> toggleVisibility(@PathVariable Long id,
+                                                       Authentication authentication) {
+        SurveyDTO updated = surveyService.toggleVisibility(id, authentication.getName());
+        return ResponseEntity.ok(updated);
+    }
+
     // Delete a survey and all associated data (only by the creator)
     @DeleteMapping("/{id}")
     @Operation(summary = "Delete a survey")
