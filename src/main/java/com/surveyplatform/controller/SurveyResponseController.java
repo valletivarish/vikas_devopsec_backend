@@ -63,7 +63,7 @@ public class SurveyResponseController {
     }
 
     // Get a specific response by ID
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "Get a survey response by ID")
     public ResponseEntity<SurveyResponseDTO> getResponseById(@PathVariable Long id) {
         return ResponseEntity.ok(surveyResponseService.getResponseById(id));
