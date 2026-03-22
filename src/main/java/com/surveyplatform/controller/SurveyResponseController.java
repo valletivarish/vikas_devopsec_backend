@@ -55,6 +55,13 @@ public class SurveyResponseController {
         return ResponseEntity.ok(surveyResponseService.getResponsesBySurvey(surveyId, username));
     }
 
+    // Get survey IDs the current user has already responded to
+    @GetMapping("/my-responded-surveys")
+    @Operation(summary = "Get survey IDs the current user has responded to")
+    public ResponseEntity<List<Long>> getMyRespondedSurveyIds(Authentication authentication) {
+        return ResponseEntity.ok(surveyResponseService.getRespondedSurveyIds(authentication.getName()));
+    }
+
     // Get a specific response by ID
     @GetMapping("/{id}")
     @Operation(summary = "Get a survey response by ID")

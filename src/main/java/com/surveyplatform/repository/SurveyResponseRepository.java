@@ -40,6 +40,10 @@ public interface SurveyResponseRepository extends JpaRepository<SurveyResponse, 
            "GROUP BY CAST(sr.submittedAt AS date) ORDER BY day")
     List<Object[]> countResponsesByDay(@Param("surveyId") Long surveyId);
 
+    // Get survey IDs that a specific user has already responded to
+    @Query("SELECT DISTINCT sr.survey.id FROM SurveyResponse sr WHERE sr.respondent.username = :username")
+    List<Long> findRespondedSurveyIdsByUsername(@Param("username") String username);
+
     // Get all response counts per survey for dashboard chart
     @Query("SELECT sr.survey.id, sr.survey.title, COUNT(sr) FROM SurveyResponse sr " +
            "WHERE sr.survey.creator.id = :creatorId GROUP BY sr.survey.id, sr.survey.title")

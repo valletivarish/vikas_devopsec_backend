@@ -111,6 +111,12 @@ public class SurveyResponseService {
                 .collect(Collectors.toList());
     }
 
+    // Get survey IDs the user has already responded to
+    @Transactional(readOnly = true)
+    public List<Long> getRespondedSurveyIds(String username) {
+        return surveyResponseRepository.findRespondedSurveyIdsByUsername(username);
+    }
+
     // Get a single response by its ID
     @Transactional(readOnly = true)
     public SurveyResponseDTO getResponseById(Long id) {
