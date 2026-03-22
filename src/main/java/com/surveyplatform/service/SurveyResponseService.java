@@ -98,9 +98,14 @@ public class SurveyResponseService {
         return mapToDTO(saved);
     }
 
-    // Get all responses for a specific survey
+    // Get all responses for a specific survey (only the survey creator can view)
     @Transactional(readOnly = true)
-    public List<SurveyResponseDTO> getResponsesBySurvey(Long surveyId) {
+    public List<SurveyResponseDTO> getResponsesBySurvey(Long surveyId, String username) {
+        Survey survey = surveyRepository.findById(surveyId)
+                .orElseThrow(() -> new ResourceNotFoundException("Survey", surveyId));
+        if (!survey.getCreator().getUsername().equals(username)) {
+            throw new BadRequestException("You can only view responses for your own surveys");
+        }
         return surveyResponseRepository.findBySurveyId(surveyId).stream()
                 .map(this::mapToDTO)
                 .collect(Collectors.toList());

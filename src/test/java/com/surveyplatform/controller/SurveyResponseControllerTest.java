@@ -83,7 +83,7 @@ class SurveyResponseControllerTest {
         SurveyResponseDTO dto = SurveyResponseDTO.builder()
                 .id(1L).surveyId(1L).completed(true).build();
 
-        when(surveyResponseService.getResponsesBySurvey(1L)).thenReturn(List.of(dto));
+        when(surveyResponseService.getResponsesBySurvey(eq(1L), anyString())).thenReturn(List.of(dto));
 
         mockMvc.perform(get("/api/responses/survey/1")
                         .header("Authorization", "Bearer " + authToken))

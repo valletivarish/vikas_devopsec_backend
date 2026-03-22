@@ -46,11 +46,13 @@ public class SurveyResponseController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    // Get all responses for a specific survey
+    // Get all responses for a specific survey (only the survey creator can view)
     @GetMapping("/survey/{surveyId}")
     @Operation(summary = "Get all responses for a survey")
-    public ResponseEntity<List<SurveyResponseDTO>> getResponsesBySurvey(@PathVariable Long surveyId) {
-        return ResponseEntity.ok(surveyResponseService.getResponsesBySurvey(surveyId));
+    public ResponseEntity<List<SurveyResponseDTO>> getResponsesBySurvey(@PathVariable Long surveyId,
+                                                                          Authentication authentication) {
+        String username = authentication.getName();
+        return ResponseEntity.ok(surveyResponseService.getResponsesBySurvey(surveyId, username));
     }
 
     // Get a specific response by ID

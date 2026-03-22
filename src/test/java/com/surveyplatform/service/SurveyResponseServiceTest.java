@@ -152,10 +152,11 @@ class SurveyResponseServiceTest {
                 () -> surveyResponseService.submitResponse(dto, null));
     }
 
-    // Test getting responses by survey ID
+    // Test getting responses by survey ID (as the survey creator)
     @Test
     void getResponsesBySurveyShouldReturnList() {
-        Survey survey = Survey.builder().id(1L).build();
+        User creator = User.builder().id(1L).username("creator").build();
+        Survey survey = Survey.builder().id(1L).creator(creator).build();
         Question question = Question.builder().id(10L).build();
         Answer answer = Answer.builder().id(1L).question(question).answerValue("Yes").build();
         SurveyResponse response = SurveyResponse.builder()
@@ -163,9 +164,10 @@ class SurveyResponseServiceTest {
                 .answers(List.of(answer))
                 .submittedAt(LocalDateTime.now()).build();
 
+        when(surveyRepository.findById(1L)).thenReturn(Optional.of(survey));
         when(surveyResponseRepository.findBySurveyId(1L)).thenReturn(List.of(response));
 
-        List<SurveyResponseDTO> result = surveyResponseService.getResponsesBySurvey(1L);
+        List<SurveyResponseDTO> result = surveyResponseService.getResponsesBySurvey(1L, "creator");
 
         assertEquals(1, result.size());
         assertEquals(1L, result.get(0).getId());
