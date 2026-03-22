@@ -55,11 +55,12 @@ public class ResultReportService {
         long completedResponses = responses.stream().filter(SurveyResponse::getCompleted).count();
         double completionRate = totalResponses > 0 ? (double) completedResponses / totalResponses * 100 : 0;
 
-        // Calculate average response time in seconds
+        // Calculate average response time in seconds (use absolute value and filter out zero durations)
         long avgTimeSeconds = 0;
         List<Long> durations = responses.stream()
                 .filter(r -> r.getStartedAt() != null && r.getSubmittedAt() != null)
-                .map(r -> Duration.between(r.getStartedAt(), r.getSubmittedAt()).getSeconds())
+                .map(r -> Math.abs(Duration.between(r.getStartedAt(), r.getSubmittedAt()).getSeconds()))
+                .filter(d -> d > 0)
                 .collect(Collectors.toList());
         if (!durations.isEmpty()) {
             avgTimeSeconds = durations.stream().mapToLong(Long::longValue).sum() / durations.size();
