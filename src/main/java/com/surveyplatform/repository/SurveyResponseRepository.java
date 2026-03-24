@@ -15,6 +15,9 @@ public interface SurveyResponseRepository extends JpaRepository<SurveyResponse, 
     // Find all responses for a specific survey
     List<SurveyResponse> findBySurveyId(Long surveyId);
 
+    // Delete all responses for a specific survey
+    void deleteBySurveyId(Long surveyId);
+
     // Find all responses submitted by a specific user
     List<SurveyResponse> findByRespondentId(Long respondentId);
 

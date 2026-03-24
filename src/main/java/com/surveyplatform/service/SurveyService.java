@@ -220,6 +220,8 @@ public class SurveyService {
             throw new ForbiddenException("You can only delete your own surveys");
         }
 
+        // Delete responses first to avoid FK constraint on answers -> questions
+        surveyResponseRepository.deleteBySurveyId(id);
         surveyRepository.delete(survey);
     }
 
