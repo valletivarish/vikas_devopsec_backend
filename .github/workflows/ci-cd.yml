@@ -56,7 +56,7 @@ jobs:
       # SpotBugs identifies common bug patterns; FindSecBugs extends it with security-focused rules
       # covering OWASP Top 10 vulnerabilities like SQL injection, XSS, and insecure cryptography
       - name: SpotBugs with FindSecBugs (SAST)
-        run: mvn com.github.spotbugs:spotbugs-maven-plugin:check -B
+        run: mvn com.github.spotbugs:spotbugs-maven-plugin:spotbugs com.github.spotbugs:spotbugs-maven-plugin:check -B
         continue-on-error: true
 
       # Step 7: Run PMD for code quality analysis detecting code smells, dead code, and complexity issues
