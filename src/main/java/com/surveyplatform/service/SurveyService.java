@@ -9,9 +9,7 @@ import com.surveyplatform.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 // Service managing all survey CRUD operations and business logic
@@ -131,13 +129,56 @@ public class SurveyService {
             survey.setStatus(SurveyStatus.valueOf(dto.getStatus()));
         }
 
-        // Replace all questions with the updated list
-        survey.getQuestions().clear();
+        // Update questions: match existing by ID, update in-place, add new, remove deleted
         if (dto.getQuestions() != null) {
+            Map<Long, Question> existingQuestions = survey.getQuestions().stream()
+                    .filter(q -> q.getId() != null)
+                    .collect(Collectors.toMap(Question::getId, q -> q));
+
+            Set<Long> incomingIds = dto.getQuestions().stream()
+                    .map(QuestionDTO::getId)
+                    .filter(qId -> qId != null)
+                    .collect(Collectors.toSet());
+
+            // Remove questions that are no longer in the DTO (only if they have no answers)
+            survey.getQuestions().removeIf(q -> q.getId() != null && !incomingIds.contains(q.getId()));
+
+            // Clear and rebuild the list in order
+            List<Question> updatedQuestions = new ArrayList<>();
             for (QuestionDTO qDto : dto.getQuestions()) {
-                Question question = mapToQuestion(qDto, survey);
-                survey.getQuestions().add(question);
+                if (qDto.getId() != null && existingQuestions.containsKey(qDto.getId())) {
+                    // Update existing question in-place
+                    Question existing = existingQuestions.get(qDto.getId());
+                    existing.setText(qDto.getText());
+                    existing.setType(QuestionType.valueOf(qDto.getType()));
+                    existing.setQuestionOrder(qDto.getQuestionOrder());
+                    existing.setRequired(qDto.getRequired() != null ? qDto.getRequired() : true);
+                    existing.setLikertMin(qDto.getLikertMin());
+                    existing.setLikertMax(qDto.getLikertMax());
+                    existing.setMaxTextLength(qDto.getMaxTextLength());
+                    existing.setConditionalQuestionId(qDto.getConditionalQuestionId());
+                    existing.setConditionalAnswer(qDto.getConditionalAnswer());
+                    // Update response options
+                    existing.getResponseOptions().clear();
+                    if (qDto.getResponseOptions() != null) {
+                        for (ResponseOptionDTO optDto : qDto.getResponseOptions()) {
+                            ResponseOption option = ResponseOption.builder()
+                                    .text(optDto.getText())
+                                    .optionOrder(optDto.getOptionOrder())
+                                    .question(existing)
+                                    .build();
+                            existing.getResponseOptions().add(option);
+                        }
+                    }
+                    updatedQuestions.add(existing);
+                } else {
+                    // New question
+                    Question newQuestion = mapToQuestion(qDto, survey);
+                    updatedQuestions.add(newQuestion);
+                }
             }
+            survey.getQuestions().clear();
+            survey.getQuestions().addAll(updatedQuestions);
         }
 
         Survey saved = surveyRepository.save(survey);
