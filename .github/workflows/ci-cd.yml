@@ -238,5 +238,14 @@ jobs:
       - name: Smoke Test - Health Check
         run: |
           echo "Waiting for application to start..."
-          sleep 30
-          curl -f http://${{ secrets.EC2_HOST }}:8080/api/health || echo "Health check pending - verify manually"
+          for i in $(seq 1 12); do
+            if curl -sf http://${{ secrets.EC2_HOST }}:8080/api/health; then
+              echo ""
+              echo "Health check passed!"
+              exit 0
+            fi
+            echo "Attempt $i/12 - retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 2 minutes - verify manually"
+          exit 1
